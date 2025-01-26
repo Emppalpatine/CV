@@ -31,10 +31,9 @@ unsigned char preamble, preamble_max;
 unsigned char dcc_byte, dcc_bit;
 unsigned char dcc_tx, dcc_rx, dcc_rx1;
 unsigned char dcc_len, dcc_mask;
-unsigned char id1, id2, railack, progbit, lack1, lack2, pomstb;
+unsigned char id2, cv1, progbit, lack1, lack2, pomstb, lnlen;
 unsigned char tx_point, tx_point2, rx_point, rx_point2, rx_data, chksum;
 __XDATA unsigned char maindcc, retry;
-__XDATA unsigned char cv1, cv2, cv3, cv4, addr_low, addr_high, lnlen;
 __XDATA unsigned int pom_addr, pom_cvadd, tmpi; 
 __XDATA unsigned char pom_cvdata, pom_mode, pom_go, pom_stat;
 __XDATA unsigned char lndecode, index;
@@ -458,7 +457,7 @@ void delay_ms(unsigned int ms)
   };
 }
 
-/*
+
 void servicemsg(void)
 {
   chksum=0xFF;
@@ -504,7 +503,7 @@ void servicemsg(void)
   uart_tx[tx_point2]=chksum;                                                  
   tx_point2++;
 }
-*/
+
 
 void answer_prog(void)
 {
@@ -1171,97 +1170,22 @@ void uartcontrol(void)
 void railcom_decode(void)
 {
   for(j=0;j<railpoint;j++) rail[j]=codez[rail[j]];
-  id1=0xFF;
+  j=0;
   id2=0xFF;
-  railack=0xFF;
-  switch (railpoint) {
-    case 1:
-      if (rail[0]!=0xFF) railack=rail[0] & 0x03; else railack=0xFF;
-    break;
-    case 2:
-      tmp = (rail[0] >> 2) & 0x0F;        
-      switch (tmp) {
-        case 0:
-          id2 = 0x00;
-          if (rail[1]!=0xFF) cv1 = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id2=0xFF;
-        break;
-        case 1:
-          id1 = 0x01;
-          if (rail[1]!=0xFF) addr_low = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-        case 2:
-          id1 = 0x02;
-          if (rail[1]!=0xFF) addr_high = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-      }
-    break;
-    case 3:      
-      tmp = (rail[0] >> 2) & 0x0F;        
-      switch (tmp) {
-        case 1:
-          id1 = 0x01;
-          if (rail[1]!=0xFF) addr_low = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-        case 2:
-          id1 = 0x02;
-          if (rail[1]!=0xFF) addr_high = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-      }
-      if (rail[2]!=0xFF) railack=rail[2] & 0x03; else railack=0xFF;
-    break;
-    case 4:      
-      tmp = (rail[0] >> 2) & 0x0F;        
-      switch (tmp) {
-        case 1:
-          id1 = 0x01;
-          if (rail[1]!=0xFF) addr_low = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-        case 2:
-          id1 = 0x02;
-          if (rail[1]!=0xFF) addr_high = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-      }
-      tmp = (rail[2] >> 2) & 0x0F;        
+  while (j<railpoint) {
+    if (rail[j] < 0x40) {
+      tmp=(rail[j] >> 2) & 0x0F;
       if (tmp==0) {
-        id2 = 0x00;
-        if (rail[3]!=0xFF) cv1 = ((rail[2] & 0x03) << 6) | (rail[3] & 0x3F); else id2=0xFF;
-      }
-    break;      
-    case 6:      
-      tmp = (rail[0] >> 2) & 0x0F;        
-      if (tmp==0) {
+        cv1=((rail[j] & 0x03) << 6) | (rail[j+1] & 0x3F);
+        j=j+2;
         id2=0;
-        if ((rail[1]!=0) && (rail[2]!=0) && (rail[3]!=0) && (rail[4]!=0) && (rail[5]!=0)) {
-          cv1 = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F);
-          cv2 = ((rail[2] & 0x3F) << 2) | ((rail[3] & 0xC0) >> 4);
-          cv3 = ((rail[3] & 0x0F) << 4) | ((rail[4] & 0xF0) >> 4);
-          cv4 = ((rail[4] & 0x03) << 6) | (rail[5] & 0x3F);
-        } else id2=0xFF;
-      }
-    break;        
-    case 8:      
-      tmp = (rail[0] >> 2) & 0x0F;        
-      switch (tmp) {
-        case 1:
-          id1 = 0x01;
-          if (rail[1]!=0xFF) addr_low = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-        case 2:
-          id1 = 0x02;
-          if (rail[1]!=0xFF) addr_high = ((rail[0] & 0x03) << 6) | (rail[1] & 0x3F); else id1=0xFF;
-        break;
-      }
-      tmp = (rail[2] >> 2) & 0x0F;        
-      if (tmp==0) {
-        id2=0;
-        if ((rail[3]!=0xFF) && (rail[4]!=0xFF) && (rail[5]!=0xFF) && (rail[6]!=0xFF) && (rail[7]!=0xFF)) {
-          cv1 = ((rail[2] & 0x03) << 6) | (rail[3] & 0x3F);
-          cv2 = ((rail[4] & 0x3F) << 2) | ((rail[5] & 0x30) >> 4);
-          cv3 = ((rail[5] & 0x0F) << 4) | ((rail[6] & 0xF0) >> 4);
-          cv4 = ((rail[6] & 0x03) << 6) | (rail[7] & 0x3F);
-        } else id2=0xFF;
-      }
-    break;        
+      }  
+      if ((tmp==1) || (tmp==2)) {
+        j=j+2;
+      }  
+    } else {
+      j++;
+    }
   }
 }
 
@@ -1375,10 +1299,12 @@ void prepare_reset(void)
 void ledcontrol(void)
 { 
   ledco++;
-  if (progmode==1) {
-    if (ledco & 0x40) LED=1; else LED=0;
+  if (dcc_off==1) {
+    if (ledco & 0x80) LED=1; else LED=0;
   } else {
-
+    if (progmode==1) {
+      if (ledco & 0x40) LED=1; else LED=0;
+    }
   }
 }
 
